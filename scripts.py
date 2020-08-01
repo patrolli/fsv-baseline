@@ -1,5 +1,9 @@
 import os
 import glob
+import time
+import torch
+import numpy as np
+
 def count_file(root_path):
     # root_path: '/opt/data/private/FSL_Datasets/HMDB_51_V2'
     # 统计train dataset下面每个class的视频数目，以及每个视频包含的图片（帧）数目
@@ -38,9 +42,30 @@ def split_train(root_path):
             list(map(lambda x: fval.write('{} {}\n'.format(x, i)),
                 [os.path.join(root_path, video_class, x) for x in val_videos]))
 
+def train_val_test(root_path):
+    # 将小样本训练集,验证集,测试集的视频文件按照 (路径 类别) 的格式存放起来
+    # root_path 是视频实际存放的路径
+    split = ['train', 'val', 'test']
+    for s in split:
+        split_path = './datafile/hmdb51/hmdb51_{}_split.txt'.format(s)
+        with open(split_path, 'r') as f:
+            classes = [x.rstrip() for x in f.readlines()]
+        with open('./datafile/hmdb51/few-shot-{}.txt'.format(s), 'w') as f:
+            for i, video_class in enumerate(classes):
+                print('processing class: {}...'.format(video_class))
+                videos = os.listdir(os.path.join(root_path, video_class))
+                list(map(lambda x: f.write('{} {}\n'.format(x, i)),
+                         [os.path.join(root_path, video_class, x) for x in videos]))
 
+
+def time_process():
+    print(time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime(time.time())))
+    import numpy as np
 
 if __name__ == '__main__':
     root_path = '/opt/data/private/FSL_Datasets/HMDB_51_V2'
     # count_file('/opt/data/private/FSL_Datasets/HMDB_51_V2')
-    split_train(root_path)
+    # split_train(root_path)
+    # time_process()
+    train_val_test(root_path)
+

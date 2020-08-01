@@ -17,7 +17,7 @@ class SetDataset:
     个Dataset创建一个Dataloader，batch_size的大小等于support+query(episode per class)的数目。对SetDataset[i]索引，可以返回类别i的
     一个episode的数据，len(SetDataset)就是整个meta-train/val/test的类别数目。
     '''
-    def __init__(self, list_file, batch_size, transform):
+    def __init__(self, list_file, batch_size):
         self.list_file = list_file
         self.sub_meta = {}
 
@@ -38,9 +38,9 @@ class SetDataset:
         sub_data_loader_params = dict(batch_size=batch_size,
                                       shuffle=True,
                                       num_workers=4,  # use main thread only or may receive multiple batches
-                                      pin_memory=True)
+                                      pin_memory=False)
         for cl in self.cl_list:
-            sub_dataset = SubDataset(self.sub_meta[cl], cl, transform=transform, dense_sample=False)
+            sub_dataset = SubDataset(self.sub_meta[cl], cl, )
             self.sub_dataloader.append(DataLoader(sub_dataset, **sub_data_loader_params))
 
     def __getitem__(self, item):
@@ -56,7 +56,8 @@ class SubDataset(SimpleVideoDataset):
     '''
     根据类别建立这个类别下的dataset
     '''
-    def __init__(self, sub_meta, cl, split='train', min_size=50):
+    def __init__(self, sub_meta, cl, split='train', clip_len=16, min_size=50):
+
         self.all_videos = sub_meta   # TODO: the format of sub_meta contains
         if len(self.all_videos) < min_size: # 如果说这个类别下的样本数量少于50，那么我们补充一些重复的样本，直到达到50个
             idxs = [i % len(self.all_videos) for i in range(min_size)]  # at least 50 samples in each class
@@ -64,7 +65,7 @@ class SubDataset(SimpleVideoDataset):
 
         self.labels = np.repeat(cl, len(self.all_videos))
         self.split = split
-
+        self.clip_len = clip_len
 
 
 class EpisodicBatchSampler(object):
@@ -82,7 +83,5 @@ class EpisodicBatchSampler(object):
 
 if __name__ == '__main__':
     list_file = '/opt/data/private/DL_Workspace/fsv-baseline/datafile/hmdb51/train_subtrain.txt'
-    list_file = root_path + '/hmdb51_train_videofolder.txt'
-    dataset = TSNDataSet(root_path, list_file, num_segments=3, dense_sample=True)
-
-    print(dataset[0])
+    setdataset = SetDataset(list_file, batch_size=10)
+    print(setdataset[0])

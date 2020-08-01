@@ -26,9 +26,9 @@ class SimpleVideoDataset(Dataset):
         folder = root_file
 
         # The following three parameters are chosen as described in the paper section 4.1
-        self.resize_height = 128
-        self.resize_width = 128
-        self.crop_size = 128
+        self._resize_height = 128
+        self._resize_width = 128
+        self._crop_size = 128
 
         # Obtain all the filenames of files inside all the class folders
         # Going through each class folder one at a time
@@ -39,6 +39,17 @@ class SimpleVideoDataset(Dataset):
             self.all_videos.append(video_path)
             self.labels.append(label)
 
+    @property
+    def resize_height(self):
+        return 128
+
+    @property
+    def resize_width(self):
+        return 128
+
+    @property
+    def crop_size(self):
+        return 128
 
     def __len__(self):
         return len(self.all_videos)
@@ -113,7 +124,7 @@ class SimpleVideoDataset(Dataset):
 
 if __name__ == "__main__":
     from torch.utils.data import DataLoader
-    train_data = SimpleVideoDataset(root_path='/opt/data/private/FSL_Datasets/HMDB_51_V2', dataset='hmdb51', split='train', clip_len=8)
+    train_data = SimpleVideoDataset(root_file='/opt/data/private/FSL_Datasets/HMDB_51_V2', split='train', clip_len=8)
     train_loader = DataLoader(train_data, batch_size=100, shuffle=True, num_workers=4)
 
     # expected output for input: (100, 3, 8, 112, 112)

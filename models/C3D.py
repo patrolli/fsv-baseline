@@ -14,8 +14,10 @@ class C3D(nn.Module):
     # TODO: I suppose the feature dim is so high...(8192)
     """
 
-    def __init__(self, num_classes, pretrained=False):
+    def __init__(self, num_classes, pretrained=False, need_feature=False):
         super(C3D, self).__init__()
+
+        self.need_feature = need_feature
 
         self.conv1 = nn.Conv3d(3, 64, kernel_size=(3, 3, 3), padding=(1, 1, 1))
         self.pool1 = nn.MaxPool3d(kernel_size=(1, 2, 2), stride=(1, 2, 2))
@@ -56,14 +58,15 @@ class C3D(nn.Module):
 
         x = x.view(-1, 8192)
         # logits = self.fc(x)
-        x = self.relu(self.fc1(x))
-        x = self.dropout(x)
-        x = self.relu(self.fc2(x))
-        x = self.dropout(x)
-
-        logits = self.fc3(x)
-
-        return logits
+        if not self.need_feature:
+            x = self.relu(self.fc1(x))
+            x = self.dropout(x)
+            x = self.relu(self.fc2(x))
+            x = self.dropout(x)
+            logits = self.fc3(x)
+            return logits
+        else: # 直接返回 feature
+            return x
 
     def __load_pretrained_weights(self):
         """Initialiaze network."""

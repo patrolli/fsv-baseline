@@ -5,8 +5,9 @@ from models.C3D import C3D
 from torch.utils.data import DataLoader, Dataset
 from dataload.simple_dataset import SimpleVideoDataset
 import os
-from utils import get_resume_file
+from io_config import *
 import numpy as np
+import time
 
 stop_epoch = 100
 start_epoch = 0
@@ -18,43 +19,46 @@ optimization = 'SGD' # choices: [SGD, Adam]
 train_classes = 31 if dataset == 'hmdb51' else 10  # TODO: ucf101
 resume = True
 
+args = parse_args()
+
 # 加载数据
-train_file = '/opt/data/private/DL_Workspace/fsv-baseline/datafile/{}/train_subtrain.txt'.format(dataset)
-val_file = '/opt/data/private/DL_Workspace/fsv-baseline/datafile/{}/train_subval.txt'.format(dataset)
+train_file = '/opt/data/private/DL_Workspace/fsv-baseline/datafile/{}/train_subtrain.txt'.format(args.dataset)
+val_file = '/opt/data/private/DL_Workspace/fsv-baseline/datafile/{}/train_subval.txt'.format(args.dataset)
 train_dataset = SimpleVideoDataset(train_file, split='train', clip_len=16)
 val_dataset = SimpleVideoDataset(val_file, split='val', clip_len=16)
-train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=4)
+train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
 val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=4)
 
 # 建立模型
 model = C3D(train_classes)
 model = model.cuda()
 model = nn.DataParallel(model)
-if optimization == 'SGD':
-    optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
-elif optimization == 'Adam':
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+if args.optim == 'SGD':
+    optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.9)
+elif args.optim == 'Adam':
+    optimizer = optim.Adam(model.parameters(), lr=args.lr)
 else:
     optimizer = None
-    raise NotImplementedError("Not support for this optim:{}".format(optimizer))
+    raise NotImplementedError("Not support for this optim:{}".format(args.optim))
 loss_fn = nn.CrossEntropyLoss()
 
 # 模型保存，导入相关，日志
 save_dir = './chechpoints'
 log_dir = './log'
 
-save_name = 'C3D_{}_{}_lr_{}_epoch_{}'.format(dataset, optimization, learning_rate, stop_epoch) + '_3fc'
+save_name = 'C3D_{}_{}_lr_{}_batch_{}_epoch_{}'.format(dataset, optimization, learning_rate, args.batch_size, args.stop_epoch) + '_3fc'
 if not os.path.exists(os.path.join(save_dir, save_name)):
     os.makedirs(os.path.join(save_dir, save_name))
 if not os.path.exists(os.path.join(log_dir, save_name)):
     os.makedirs(os.path.join(log_dir, save_name))
 
-log_file = open(os.path.join(log_dir, save_name, save_name+'.txt'), 'w')
+log_time = time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime(time.time()))
+log_file = open(os.path.join(log_dir, save_name, save_name+log_time+'.txt'), 'w')
 
-save_dir = os.path.join(save_dir, save_name)
-log_dr = os.path.join(log_dir, save_name)
+save_dir = os.path.join(save_dir, save_name)  # 这两句似乎没什么作用啊?
+log_dir = os.path.join(log_dir, save_name)  # TODO: add local time to logfile name
 
-if resume:
+if args.resume:
     resume_file = get_resume_file(save_dir)
     if resume_file is not None:
         tmp = torch.load(resume_file)
@@ -63,7 +67,8 @@ if resume:
 
 # 训练模型
 max_acc = 0
-for epoch in range(start_epoch, stop_epoch):
+
+for epoch in range(args.start_epoch, args.stop_epoch):
     model.train()
     avg_loss = 0
     for i, (x, y) in enumerate(train_loader):
@@ -105,7 +110,7 @@ for epoch in range(start_epoch, stop_epoch):
         outfile = os.path.join(save_dir, 'best_model.tar')
         torch.save({'epoch': epoch, 'state': model.module.state_dict(), 'max_acc': max_acc}, outfile)
 
-    if (epoch % save_freq==0) or (epoch==stop_epoch-1):
+    if (epoch % args.save_freq==0) or (epoch==args.stop_epoch-1):
         outfile = os.path.join(save_dir, '{:d}.tar'.format(epoch))
         torch.save({'epoch':epoch, 'state':model.module.state_dict(), 'max_acc': max_acc}, outfile)
 print(max_acc)

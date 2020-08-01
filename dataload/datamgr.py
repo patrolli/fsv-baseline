@@ -1,7 +1,6 @@
-from dataload.dataset import SetDataset, EpisodicBatchSampler
+from .dataset import SetDataset, EpisodicBatchSampler
 from torch.utils.data import Dataset, DataLoader
 from abc import abstractmethod
-from dataload.transforms import *
 import torchvision
 
 
@@ -17,9 +16,8 @@ class SetDataManager(DataManager):
         self.batch_size = k_shot + q_query
         self.n_episode = n_episode
 
-    def get_data_loader(self, data_file, aug):
-        transform = aug
-        dataset = SetDataset(data_file, self.batch_size, transform)
+    def get_data_loader(self, list_file):
+        dataset = SetDataset(list_file, self.batch_size)
         sampler = EpisodicBatchSampler(len(dataset), self.n_way, self.n_episode)
         data_loader_params = dict(batch_sampler=sampler)
         data_loader = DataLoader(dataset, **data_loader_params)
@@ -27,13 +25,9 @@ class SetDataManager(DataManager):
 
 if __name__ == '__main__':
     # 创建并使用dataloader的示例
-    input_size = 224
-    transform = torchvision.transforms.Compose([GroupMultiScaleCrop(input_size, [1, .875, .75, .66]),
-                                                GroupRandomHorizontalFlip(is_flow=False),
-                                                Stack(),
-                                                ToTorchFormatTensor(),
-                                                GroupNormalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
-    data_file = '/opt/data/private/FSL_Datasets/HMDB_51_frames/hmdb51_train_videofolder.txt'
-    datamgr = SetDataManager(n_way=5, k_shot=2, q_query=1)
-    loader = datamgr.get_data_loader(data_file, transform)
-    print(iter(loader).__next__())
+    datamgr = SetDataManager(n_way=5, k_shot=2, q_query=5)
+    list_file = '/opt/data/private/DL_Workspace/fsv-baseline/datafile/hmdb51/train_subtrain.txt'
+    loader = datamgr.get_data_loader(list_file)
+    x, y = iter(loader).__next__()
+    print(y)
+    print(x.size(), y.size())  # expect output of x: (n_way, k_shot+q_query, C, n_frame, H, W)

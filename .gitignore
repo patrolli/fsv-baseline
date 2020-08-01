@@ -1,2 +1,5 @@
 chechpoints/
 log/
+__pycache__/
+dataload/__pycache__
+models/__pycache__
