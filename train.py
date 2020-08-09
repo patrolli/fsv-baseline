@@ -1,3 +1,4 @@
+import sys
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -9,7 +10,7 @@ from io_config import *
 import numpy as np
 import time
 
-stop_epoch = 100
+stop_epochn = 100
 start_epoch = 0
 save_freq = 10
 print_freq = 20
@@ -30,7 +31,7 @@ train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=Tru
 val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=4)
 
 # 建立模型
-model = C3D(train_classes)
+model = C3D(train_classes, pooling=args.pooling)
 model = model.cuda()
 model = nn.DataParallel(model)
 if args.optim == 'SGD':
@@ -40,13 +41,14 @@ elif args.optim == 'Adam':
 else:
     optimizer = None
     raise NotImplementedError("Not support for this optim:{}".format(args.optim))
+scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.1)
 loss_fn = nn.CrossEntropyLoss()
 
 # 模型保存，导入相关，日志
 save_dir = './chechpoints'
 log_dir = './log'
 
-save_name = 'C3D_{}_{}_lr_{}_batch_{}_epoch_{}'.format(dataset, optimization, learning_rate, args.batch_size, args.stop_epoch) + '_3fc'
+save_name = 'C3D_{}_{}_lr_{}_batch_{}_epoch_{}_pool_{}'.format(dataset, optimization, args.lr, args.batch_size, args.stop_epoch, str(args.pooling)) + '_3fc'
 if not os.path.exists(os.path.join(save_dir, save_name)):
     os.makedirs(os.path.join(save_dir, save_name))
 if not os.path.exists(os.path.join(log_dir, save_name)):
@@ -83,7 +85,6 @@ for epoch in range(args.start_epoch, args.stop_epoch):
         if i % print_freq == 0:
             print('Epoch {:d} | Batch {:d}/{:d} | Loss {:f}'.format(epoch, i, len(train_loader), avg_loss/float(i+1)))
             log_file.write('Epoch {:d} | Batch {:d}/{:d} | Loss {:f}\n'.format(epoch, i, len(train_loader), avg_loss/float(i+1)))
-
     test_iter_num = len(val_loader)
     acc_all = []
     model.eval()
@@ -113,5 +114,7 @@ for epoch in range(args.start_epoch, args.stop_epoch):
     if (epoch % args.save_freq==0) or (epoch==args.stop_epoch-1):
         outfile = os.path.join(save_dir, '{:d}.tar'.format(epoch))
         torch.save({'epoch':epoch, 'state':model.module.state_dict(), 'max_acc': max_acc}, outfile)
+    scheduler.step()
 print(max_acc)
+log_file.write('best acc is: {}\n'.format(max_acc))
 log_file.close()

@@ -10,13 +10,14 @@ def parse_args():
     parser.add_argument('--q_query', default=2, type=int)
     parser.add_argument('--resume', action='store_true', help='resume to train')
     parser.add_argument('--epi_train', action='store_true', default=True, help='use episode training or use standard softmax training')
-    parser.add_argument('--start_epoch', default=0)
-    parser.add_argument('--stop_epoch', default=100, help='for episode training, each epoch contains 100 episodes')
+    parser.add_argument('--start_epoch', default=0, type=int)
+    parser.add_argument('--stop_epoch', default=100, type=int, help='for episode training, each epoch contains 100 episodes')
     parser.add_argument('--save_freq', default=10, help='save model in each save_freq epochs')
-    parser.add_argument('--lr', default=0.01, help='set the learning rate')
+    parser.add_argument('--lr', default=0.01, help='set the learning rate', type=float)
     parser.add_argument('--optim', default='SGD', choices=['SGD', 'Adam'])
     parser.add_argument('--dataset', default='hmdb51', choices=['hmdb51', 'ucf101'])
     parser.add_argument('--batch_size', default=64, type=int)
+    parser.add_argument('--pooling', default=None, type=str)  # 'avg', 'max', 'bilinear'
     return parser.parse_args()
 
 def get_assigned_file(checkpoint_dir,num):

@@ -23,15 +23,17 @@ args = parse_args()
 print(args)
 # 加载测试数据
 test_file = '/opt/data/private/DL_Workspace/fsv-baseline/datafile/{}/few-shot-test.txt'.format(args.dataset)
-data_mgr = SetDataManager(args.n_way, args.k_shot, args.q_query)
+data_mgr = SetDataManager(args.n_way, args.k_shot, args.q_query, 600)
 loader = data_mgr.get_data_loader(test_file)
 # 加载模型
-model = C3D(num_classes=31, need_feature=True)  # 这里 num_classes 是一个没有用的参数,但必须加上, 保证和保存的模型参数匹配
+model = C3D(num_classes=31, need_feature=True, pooling=args.pooling)  # 这里 num_classes 是一个没有用的参数,但必须加上, 保证和保存的模型参数匹配
 model = model.cuda()
-check_dir = './chechpoints/C3D_hmdb51_SGD_lr_0.01_epoch_100_3fc'
+check_dir = './chechpoints/C3D_hmdb51_SGD_lr_0.01_batch_32_epoch_100_pool_avg_3fc'
 print(check_dir)
 best_file = get_best_file(check_dir)
+# best_file = get_resume_file(check_dir)
 tmp = torch.load(best_file)
+
 model.load_state_dict(tmp['state'])
 print('best model loaded!!!')
 # 测试 loop

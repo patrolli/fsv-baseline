@@ -2,6 +2,10 @@ import torch
 import torch.nn as nn
 # from mypath import Path  # TODO: in fact, i think mypath is useful
 
+def pn_func(x):
+    sigma = 0.1
+    return (1-torch.exp(sigma*x)) / (1 + torch.exp(sigma*x))
+
 class C3D(nn.Module):
     """
     The C3D network.
@@ -11,30 +15,50 @@ class C3D(nn.Module):
     conv4(3, 3, 3)->pooling4(2, 2, 2)
     input_size is (N, C, D, H, W), suppose (D, H, W) is (16, 128, 128), size changes as:
     (16, 128, 128)->(16, 64, 64)->(8, 32, 32)->(4, 16, 16)->(2, 8, 8)-(flatten)->(128x64=8192)
+    # pooling chioces  = ['avg', 'max', 'bilinaer']
     # TODO: I suppose the feature dim is so high...(8192)
     """
 
-    def __init__(self, num_classes, pretrained=False, need_feature=False):
+    def __init__(self, num_classes, pretrained=False, need_feature=False, pooling=None):
         super(C3D, self).__init__()
 
         self.need_feature = need_feature
+        self.pooling = pooling
 
         self.conv1 = nn.Conv3d(3, 64, kernel_size=(3, 3, 3), padding=(1, 1, 1))
+        self.bn1 = nn.BatchNorm3d(64)
         self.pool1 = nn.MaxPool3d(kernel_size=(1, 2, 2), stride=(1, 2, 2))
 
         self.conv2 = nn.Conv3d(64, 64, kernel_size=(3, 3, 3), padding=(1, 1, 1))
+        self.bn2 = nn.BatchNorm3d(64)
         self.pool2 = nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2))
 
         self.conv3 = nn.Conv3d(64, 64, kernel_size=(3, 3, 3), padding=(1, 1, 1))
+        self.bn3 = nn.BatchNorm3d(64)
         self.pool3 = nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2))
 
         self.conv4 = nn.Conv3d(64, 64, kernel_size=(3, 3, 3), padding=(1, 1, 1))
+        self.bn4 = nn.BatchNorm3d(64)
         self.pool4 = nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2))
 
-        self.fc1 = nn.Linear(8192, 4096)
-        self.fc2 = nn.Linear(4096, 4096)
-        self.fc3 = nn.Linear(4096, num_classes)
-        self.dropout = nn.Dropout(p=0.5)
+        if pooling == 'avg':
+            self.final_pooling = nn.AdaptiveAvgPool3d((1, None, None))
+        elif pooling == 'max':
+            self.final_pooling = nn.AdaptiveMaxPool3d((1, None, None))
+
+        else:
+            self.final_pooling = nn.Identity()
+
+        if pooling == None:
+            self.fc1 = nn.Linear(8192, 4096)
+            self.fc2 = nn.Linear(4096, 4096)
+            self.fc3 = nn.Linear(4096, num_classes)
+        else:
+            self.fc1 = nn.Linear(4096, 2048)
+            self.fc2 = nn.Linear(2048, 2048)
+            self.fc3 = nn.Linear(2048, num_classes)
+
+        # self.dropout = nn.Dropout(p=0.5)
         self.relu = nn.ReLU()
 
         self.__init_weight()
@@ -44,25 +68,31 @@ class C3D(nn.Module):
 
     def forward(self, x):
 
-        x = self.relu(self.conv1(x))
+        x = self.relu(self.bn1(self.conv1(x)))
         x = self.pool1(x)
 
-        x = self.relu(self.conv2(x))
+        x = self.relu(self.bn2(self.conv2(x)))
         x = self.pool2(x)
 
-        x = self.relu(self.conv3(x))
+        x = self.relu(self.bn3(self.conv3(x)))
         x = self.pool3(x)
 
-        x = self.relu(self.conv4(x))
+        x = self.relu(self.bn4(self.conv4(x)))
         x = self.pool4(x)
 
-        x = x.view(-1, 8192)
-        # logits = self.fc(x)
+        x = self.final_pooling(x)
+        if self.pooling == 'bilinear':
+            T, H, W = x.size()[2:]
+            x = x.reshape(x.size()[0], x.size()[1], -1) # (n, c, TxHxW)
+            x = torch.bmm(x, x.transpose(1, 2).contiguous()).div_(H*W*T) # (n, c, c)
+            x = pn_func(x)
+            # print(x)
+        x = x.reshape(x.size()[0], -1)
         if not self.need_feature:
             x = self.relu(self.fc1(x))
-            x = self.dropout(x)
+        #    x = self.dropout(x)
             x = self.relu(self.fc2(x))
-            x = self.dropout(x)
+        #    x = self.dropout(x)
             logits = self.fc3(x)
             return logits
         else: # 直接返回 feature
@@ -143,7 +173,7 @@ def get_10x_lr_params(model):
 
 if __name__ == "__main__":
     inputs = torch.rand(1, 3, 16, 128, 128)
-    net = C3D(num_classes=31, pretrained=False)
+    net = C3D(num_classes=31, pretrained=False, pooling='bilinear')
 
     outputs = net.forward(inputs)
     print(outputs.size())
