@@ -1,4 +1,4 @@
-from .dataset import SetDataset, EpisodicBatchSampler
+from dataload.dataset import SetDataset, EpisodicBatchSampler
 from torch.utils.data import Dataset, DataLoader
 from abc import abstractmethod
 import torchvision

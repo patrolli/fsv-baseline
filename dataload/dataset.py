@@ -7,7 +7,7 @@ import torchvision
 from numpy.random import randint
 import torch
 from torch.utils.data import DataLoader, Dataset
-from .simple_dataset import SimpleVideoDataset
+from dataload.simple_dataset import SimpleVideoDataset
 
 
 class SetDataset:
