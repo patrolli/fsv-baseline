@@ -36,7 +36,7 @@ elif args.model == 'FS_MENet':
 else:
     raise NotImplementedError('no such a model!')
 model = model.cuda()
-check_dir = './chechpoints/FS_MENet34_hmdb51_SGD_lr_0.1_epi_True_epoch_100'
+check_dir = './chechpoints/FS_MENet50_hmdb51_SGD_lr_0.01_epi_True_epoch_100tmp_1'
 print(check_dir)
 # best_file = get_best_file(check_dir)
 # best_file = get_resume_file(check_dir)
